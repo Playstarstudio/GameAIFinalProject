@@ -8,7 +8,7 @@ public class MapDisplay : MonoBehaviour
     public Tilemap tilemap; 
     public Tile baseTile;
 
-    public void DrawNoiseMap(float[,] noiseMap)
+    public void DrawNoiseMap(float[,] noiseMap, float[,] noiseMap2, float[,] noiseMap3)
     {
         int width = noiseMap.GetLength(0);
         int height = noiseMap.GetLength(1);
@@ -21,7 +21,7 @@ public class MapDisplay : MonoBehaviour
         {
             for (int x = 0; x < width; x++)
             {
-                float value = noiseMap[x, y];
+                float value = (noiseMap[x, y] + (noiseMap2[x,y] * .3f) + (noiseMap3[x,y] * .125f))*.8f;
                 Color tileColor = Color.Lerp(Color.black, Color.white, value);
                 Tile newTile = ScriptableObject.CreateInstance<Tile>();
                 newTile.sprite = baseTile.sprite; 

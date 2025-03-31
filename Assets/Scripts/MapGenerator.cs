@@ -4,8 +4,12 @@ public class MapGenerator : MonoBehaviour
 {
     public int mapWidth;
     public int mapHeight;
-    public float scale;
-    public int octaves;
+    public float scale1;
+    public float scale2;
+    public float scale3;
+    public int octaves1 = 1;
+    public int octaves2 = 6;
+    public int octaves3 = 12;
     [Range(0, 1)]
     public float persistence;
     public float lacunarity;
@@ -21,8 +25,11 @@ public class MapGenerator : MonoBehaviour
 
     public void GenerateMap()
     {
-        float[,] noiseMap = GenerateNoiseMap(mapWidth, mapHeight, seed, scale, octaves, persistence, lacunarity, offset);
-        mapDisplay.DrawNoiseMap(noiseMap);
+        float[,] noiseMap1 = GenerateNoiseMap(mapWidth, mapHeight, seed, scale1, octaves1, persistence, lacunarity, offset);
+        float[,] noiseMap2 = GenerateNoiseMap(mapWidth, mapHeight, seed, scale2, octaves2, persistence, lacunarity, offset);
+        float[,] noiseMap3 = GenerateNoiseMap(mapWidth, mapHeight, seed, scale3, octaves3, persistence, lacunarity, offset);
+
+        mapDisplay.DrawNoiseMap(noiseMap1, noiseMap2, noiseMap3);
     }
 
     float[,] GenerateNoiseMap(int width, int height, int seed, float scale, int octaves, float persistence, float lacunarity, Vector2 offset)
