@@ -6,6 +6,7 @@ public class MapGenerator : MonoBehaviour
     public int mapHeight;
     public float scale;
     public int octaves;
+    [Range(0, 1)]
     public float persistence;
     public float lacunarity;
     public int seed;
