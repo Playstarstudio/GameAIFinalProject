@@ -272,9 +272,15 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b8d6925f91ac85a428f2f84b3351f93f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  mapWidth: 300
-  mapHeight: 300
+  mapWidth: 10
+  mapHeight: 10
   scale: 7
+  octaves: 4
+  persistence: 0.5
+  lacunarity: 2
+  seed: 2
+  offset: {x: 0, y: 0}
+  autoUpdate: 0
   mapDisplay: {fileID: 1948304850}
 --- !u!114 &136237828
 MonoBehaviour:

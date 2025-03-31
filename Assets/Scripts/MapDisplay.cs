@@ -6,7 +6,7 @@ using UnityEngine.Tilemaps;
 public class MapDisplay : MonoBehaviour
 {
     public Tilemap tilemap; 
-    public Tile baseTile; 
+    public Tile baseTile;
 
     public void DrawNoiseMap(float[,] noiseMap)
     {
