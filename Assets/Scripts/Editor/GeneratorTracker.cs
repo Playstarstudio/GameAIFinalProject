@@ -1,4 +1,5 @@
 using UnityEditor;
+using UnityEngine;
 
 [CustomEditor(typeof(MapGenerator))]
 public class GeneratorTracker : Editor
@@ -15,5 +16,4 @@ public class GeneratorTracker : Editor
             }
         }
     }
-
 }
