@@ -11,7 +11,7 @@ public class MapDisplay : MonoBehaviour
     public DisplayMode displayMode;
     public Tilemap tilemap; 
     public Tile baseTile;
-    private TerrainType[] terrainTypes;
+    public TerrainType[] terrainTypes;
     [Range(0f, 1f)]
     public float waterPercent = 0.2f;
     [Range(0f, 1f)]
@@ -23,6 +23,7 @@ public class MapDisplay : MonoBehaviour
     [Range(0f, 1f)]
     public float snowPercent = 0.1f;
     public MapGenerator mapGenerator;
+    private float[,] savedNoiseMap;
 
     private void Start()
     {
@@ -88,7 +89,7 @@ public class MapDisplay : MonoBehaviour
 
         int width = noiseMap.GetLength(0);
         int height = noiseMap.GetLength(1);
-
+        savedNoiseMap = new float[width, height];
         // Clear old tiles before drawing
         tilemap.ClearAllTiles();
         // Ensure the Tilemap bounds match the noise map
@@ -97,20 +98,22 @@ public class MapDisplay : MonoBehaviour
         {
             for (int x = 0; x < width; x++)
             {
+                savedNoiseMap[x, y] = (noiseMap[x, y] + (noiseMap2[x, y] * .3f) + (noiseMap3[x, y] * .125f)) * .8f;
                 float value = (noiseMap[x, y] + (noiseMap2[x,y] * .3f) + (noiseMap3[x,y] * .125f))*.8f;
+
                 //potentially clamp this
-                value = Mathf.Clamp01(value);
+                savedNoiseMap[x, y] = Mathf.Clamp01(value);
                 
                 //use the enum to switch between either the map with the biomes or the noise map
                 Color tileColour = Color.black;
                 if (displayMode == DisplayMode.NoiseMap)
                 {
                     //linearly interpolate between black and white based on value
-                    tileColour = Color.Lerp(Color.black, Color.white, value);
+                    tileColour = Color.Lerp(Color.black, Color.white, savedNoiseMap[x, y]);
                 } else if (displayMode == DisplayMode.TerrainMap)
                 {
                     //otherwise get the matching colour from the terrain type array
-                    TerrainType selectedTerrain = GetTerrainType(value);
+                    TerrainType selectedTerrain = GetTerrainType(savedNoiseMap[x, y]);
                     tileColour = selectedTerrain.colour;
                 }
                 
@@ -155,5 +158,22 @@ public class MapDisplay : MonoBehaviour
             }
         }
         return selectedTerrain;
+    }
+    public float GetNoiseValue(int x, int y)
+    {
+        if (savedNoiseMap == null)
+        {
+            Debug.LogError("Noise map hasn't been saved yet!");
+            return 0f;
+        }
+
+        if (x < 0 || x >= savedNoiseMap.GetLength(0) ||
+            y < 0 || y >= savedNoiseMap.GetLength(1))
+        {
+            Debug.LogError($"Requested coordinates ({x},{y}) are out of bounds!");
+            return 0f;
+        }
+
+        return savedNoiseMap[x, y];
     }
 }
