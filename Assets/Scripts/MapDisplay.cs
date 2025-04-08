@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.Tilemaps;
 using UnityEngine.UIElements;
@@ -11,33 +12,78 @@ public class MapDisplay : MonoBehaviour
     public Tilemap tilemap; 
     public Tile baseTile;
     private TerrainType[] terrainTypes;
+    [Range(0f, 1f)]
+    public float waterPercent = 0.2f;
+    [Range(0f, 1f)]
+    public float grasslandPercent = 0.2f;
+    [Range(0f, 1f)]
+    public float forrestPercent = 0.2f;
+    [Range(0f, 1f)]
+    public float mountainPercent = 0.2f;
+    [Range(0f, 1f)]
+    public float snowPercent = 0.1f;
+    public MapGenerator mapGenerator;
 
-
-    private void Awake()
+    private void Start()
     {
-        SetUpTerrainTypes();
+        adjustTerrainTypes(waterPercent, grasslandPercent, forrestPercent, mountainPercent, snowPercent);
     }
 
-    private void SetUpTerrainTypes()
+    //function to adjust the terrain based on the percentage chosen
+    private void adjustTerrainTypes(float waterPercent, float grasslandPercent, float forrestPercent, float mountainPercent, float snowPercent)
     {
+        float total = waterPercent + grasslandPercent + forrestPercent + mountainPercent + snowPercent;
+        if (Mathf.Abs(total - 1.0f) > 0.01f)
+        {
+            Debug.LogWarning("Totals for terrain don't equal 1, adjusting now");
+            float normalizer = 1/ (waterPercent + grasslandPercent + forrestPercent + mountainPercent + snowPercent);
+            waterPercent = waterPercent * normalizer;
+            grasslandPercent = grasslandPercent * normalizer;
+            forrestPercent = forrestPercent * normalizer;
+            mountainPercent = mountainPercent * normalizer;
+            snowPercent = snowPercent * normalizer;
+        }
+
+        float waterThreshold = waterPercent;
+        float grassThreshold = waterThreshold + grasslandPercent;
+        float forestThreshold = grassThreshold + forrestPercent;
+        float mountainThreshold = forestThreshold + mountainPercent;
+        float snowThreshold = 1.0f;
+
         terrainTypes = new TerrainType[]
         {
             //in order
             //water, grassland, forrest, mountain, snow
-            new TerrainType(new Color(0.3f, 0.6f, 0.9f), false, 0.3f),
-            new TerrainType(new Color(0.3f, 0.7f, 0.3f), true, 0.5f),
-            new TerrainType(new Color(0.1f,0.4f,0.1f), true, 0.7f),
-            new TerrainType(new Color(0.5f, 0.4f, 0.3f), false, 0.9f),
-            new TerrainType(Color.white, false, 1.0f),
+            new TerrainType(new Color(0.3f, 0.6f, 0.9f), false, waterThreshold),
+            new TerrainType(new Color(0.3f, 0.7f, 0.3f), true, grassThreshold),
+            new TerrainType(new Color(0.1f, 0.4f, 0.1f), true, forestThreshold),
+            new TerrainType(new Color(0.5f, 0.4f, 0.3f), false, mountainThreshold),
+            new TerrainType(Color.white, false, snowThreshold)
         };
+
+        //redraw
+        mapGenerator.GenerateMap();
+    }
+
+    public void OnSliderChange()
+    {
+        adjustTerrainTypes(waterPercent, grasslandPercent, forrestPercent, mountainPercent, snowPercent);
+    }
+
+    [ContextMenu("Recalculate the Map")]
+    public void RecalculateTheMap()
+    {
+        OnSliderChange();
     }
 
     public void DrawNoiseMap(float[,] noiseMap, float[,] noiseMap2, float[,] noiseMap3)
     {
         if (terrainTypes == null)
         {
+            //this should just show whenever we try to set a value that will push values over 1
+            //triggering an adjustment and a normalization
             Debug.LogWarning("Terrain types not set up, trying to set up now");
-            SetUpTerrainTypes();
+            adjustTerrainTypes(waterPercent, grasslandPercent, forrestPercent, mountainPercent, snowPercent);
         }
 
         int width = noiseMap.GetLength(0);
@@ -52,6 +98,8 @@ public class MapDisplay : MonoBehaviour
             for (int x = 0; x < width; x++)
             {
                 float value = (noiseMap[x, y] + (noiseMap2[x,y] * .3f) + (noiseMap3[x,y] * .125f))*.8f;
+                //potentially clamp this
+                value = Mathf.Clamp01(value);
                 
                 //use the enum to switch between either the map with the biomes or the noise map
                 Color tileColour = Color.black;
@@ -95,7 +143,7 @@ public class MapDisplay : MonoBehaviour
     //function to loop through the terrain types based on the value passed in
     private TerrainType GetTerrainType(float value)
     {
-        TerrainType selectedTerrain = new TerrainType();
+        TerrainType selectedTerrain = terrainTypes[terrainTypes.Length - 1];
         for (int i = 0; i < terrainTypes.Length; i++)
         {
             TerrainType myTerrain = terrainTypes[i];
