@@ -1,4 +1,7 @@
 using System.Collections.Generic;
+using System.Net;
+using Unity.Mathematics;
+using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.Tilemaps;
 
@@ -20,7 +23,8 @@ public class MapDisplay : MonoBehaviour
     [Range(0f, 1f)]
     public float snowPercent = 0.1f;
     public MapGenerator mapGenerator;
-    public float[,] savedNoiseMap;
+    public float[,] buffer;
+    public MapData[,] noiseMapData;
 
     private void Start()
     {
@@ -51,14 +55,14 @@ public class MapDisplay : MonoBehaviour
         terrainTypes = new TerrainType[]
         {
             //in order
-            new TerrainType(new Color(0.3f, 0.6f, 0.9f), false, waterThreshold),    // Water
-            new TerrainType(new Color(0.3f, 0.7f, 0.3f), true, grassThreshold),     // Grasslands
-            new TerrainType(new Color(0.1f, 0.4f, 0.1f), true, forestThreshold),    // Forest
-            new TerrainType(new Color(0.5f, 0.4f, 0.3f), false, mountainThreshold), // Mountain
-            new TerrainType(Color.white, false, snowThreshold),                     // Snow
-            //new TerrainType(Color.red, true, -2f),                                // City
-            //new TerrainType(Color.yellow, true, -3f),                             // Town
-            //new TerrainType(Color.gray,true,-4f)                                  // Road
+            new TerrainType(new Color(0.3f, 0.6f, 0.9f), false, waterThreshold, 0),    // Water
+            new TerrainType(new Color(0.3f, 0.7f, 0.3f), true, grassThreshold, 0),     // Grasslands
+            new TerrainType(new Color(0.1f, 0.4f, 0.1f), true, forestThreshold, 0),    // Forest
+            new TerrainType(new Color(0.5f, 0.4f, 0.3f), false, mountainThreshold, 0), // Mountain
+            new TerrainType(Color.white, false, snowThreshold, 0),                     // Snow
+            new TerrainType(Color.red, true, 0.1f, 1),                                 // City
+            new TerrainType(Color.yellow, true, 0.1f, 2),                              // Town
+            new TerrainType(Color.gray,true, 0.1f ,3)                                  // Road
         };
 
         //redraw
@@ -88,7 +92,7 @@ public class MapDisplay : MonoBehaviour
 
         int width = noiseMap.GetLength(0);
         int height = noiseMap.GetLength(1);
-        savedNoiseMap = new float[width, height];
+        noiseMapData = new MapData[width, height];
         // Clear old tiles before drawing
         tilemap.ClearAllTiles();
         // Ensure the Tilemap bounds match the noise map
@@ -97,21 +101,21 @@ public class MapDisplay : MonoBehaviour
         {
             for (int x = 0; x < width; x++)
             {
-                savedNoiseMap[x, y] = (noiseMap[x, y] + (noiseMap2[x, y] * .3f) + (noiseMap3[x, y] * .125f) * .8f);
+                float value = ((noiseMap[x, y] + (noiseMap2[x, y] * .3f) + (noiseMap3[x, y] * .125f) * .8f));
                 //potentially clamp this
-                savedNoiseMap[x, y] = Mathf.Clamp01(savedNoiseMap[x, y]);
-
+                value = Mathf.Clamp01(value);
+                noiseMapData[x, y] = new MapData(value, GetTerrainType(value), 0);
                 //use the enum to switch between either the map with the biomes or the noise map
                 Color tileColour = Color.black;
                 if (displayMode == DisplayMode.NoiseMap)
                 {
                     //linearly interpolate between black and white based on value
-                    tileColour = Color.Lerp(Color.black, Color.white, savedNoiseMap[x, y]);
+                    tileColour = Color.Lerp(Color.black, Color.white, value);
                 }
                 else if (displayMode == DisplayMode.TerrainMap)
                 {
                     //otherwise get the matching colour from the terrain type array
-                    TerrainType selectedTerrain = GetTerrainType(savedNoiseMap[x, y]);
+                    TerrainType selectedTerrain = GetTerrainType(noiseMapData[x, y].FloatValue);
                     tileColour = selectedTerrain.colour;
                 }
 
@@ -136,7 +140,6 @@ public class MapDisplay : MonoBehaviour
             Tile cityTile = ScriptableObject.CreateInstance<Tile>();
             cityTile.sprite = baseTile.sprite;
             cityTile.color = Color.red; // City color
-
             tilemap.SetTile(new Vector3Int(centeredX, centeredY, 0), cityTile);
         }
 
@@ -179,12 +182,28 @@ public class MapDisplay : MonoBehaviour
         public Color colour;
         public float threshold;
         public bool isTraversable;
+        public int type;
 
-        public TerrainType(Color colour, bool isTraversable, float threshold)
+        public TerrainType(Color colour, bool isTraversable, float threshold, int type)
         {
             this.colour = colour;
             this.isTraversable = isTraversable;
             this.threshold = threshold;
+            this.type = type;
+        }
+    }
+
+    public struct MapData
+    {
+        public float FloatValue;
+        public TerrainType Terrain;
+        public int Structure;
+
+        public MapData (float floatValue, TerrainType terrain, int structure)
+        {
+            this.FloatValue = floatValue;
+            this.Terrain = terrain;
+            this.Structure = structure;
         }
     }
 
@@ -205,21 +224,25 @@ public class MapDisplay : MonoBehaviour
         return selectedTerrain;
     }
 
+    private TerrainType ReadSavedTerrain(int x, int y)
+    {
+        return noiseMapData[x, y].Terrain;
+    }
+
     public float GetNoiseValue(int x, int y)
     {
-        if (savedNoiseMap == null)
+        if (noiseMapData == null)
         {
             Debug.LogError("Noise map hasn't been saved yet!");
             return 0f;
         }
-
-        if (x < 0 || x >= savedNoiseMap.GetLength(0) ||
-            y < 0 || y >= savedNoiseMap.GetLength(1))
+        if (x < 0 || x >= noiseMapData.GetLength(0) ||
+            y < 0 || y >= noiseMapData.GetLength(1))
         {
             Debug.LogError($"Requested coordinates ({x},{y}) are out of bounds!");
             return 0f;
         }
-
-        return savedNoiseMap[x, y];
+        return noiseMapData[x, y].FloatValue;
     }
+
 }
