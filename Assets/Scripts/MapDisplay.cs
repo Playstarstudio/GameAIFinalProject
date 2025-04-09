@@ -15,7 +15,7 @@ public class MapDisplay : MonoBehaviour
     [Range(0f, 1f)]
     public float waterPercent = 0.2f;
     [Range(0f, 1f)]
-    public float grasslandPercent = 0.2f;
+    public float grasslandPercent = 0.3f;
     [Range(0f, 1f)]
     public float forrestPercent = 0.2f;
     [Range(0f, 1f)]
@@ -129,18 +129,47 @@ public class MapDisplay : MonoBehaviour
         }
     }
 
-    public void DrawSettlements(List<Vector2Int> cities, List<Vector2Int> towns, HashSet<Vector2Int> roads = null)
+    public void DrawSettlements(List<Vector2Int> cities, List<Vector2Int> towns,
+                      HashSet<Vector2Int> roads = null,
+                      HashSet<Vector2Int> primaryRoads = null,
+                      HashSet<Vector2Int> secondaryRoads = null)
     {
-        // Draw cities with red color
+        Debug.Log($"Drawing {cities.Count} cities and {(roads != null ? roads.Count : 0)} road tiles");
+        Debug.Log($"Tilemap size: {tilemap.size}, origin: {tilemap.origin}, cellBounds: {tilemap.cellBounds}");
+
+        if (cities.Count > 0)
+        {
+            Debug.Log($"First city position: {cities[0]}, centered at: {cities[0].x - tilemap.size.x / 2}, {cities[0].y - tilemap.size.y / 2}");
+        }
+
+        // Draw cities with red color and markers
         foreach (Vector2Int city in cities)
         {
             int centeredX = city.x - tilemap.size.x / 2;
             int centeredY = city.y - tilemap.size.y / 2;
 
+            // Draw the city center
             Tile cityTile = ScriptableObject.CreateInstance<Tile>();
             cityTile.sprite = baseTile.sprite;
-            cityTile.color = Color.red; // City color
+            cityTile.color = new Color(1f, 0f, 0f, 1f); // Bright red with full alpha
+
             tilemap.SetTile(new Vector3Int(centeredX, centeredY, 0), cityTile);
+
+            // Draw a cross pattern around the city for better visibility
+            int[] dx = { 0, 1, 0, -1 };
+            int[] dy = { 1, 0, -1, 0 };
+
+            for (int i = 0; i < 4; i++)
+            {
+                int nx = centeredX + dx[i];
+                int ny = centeredY + dy[i];
+
+                Tile markerTile = ScriptableObject.CreateInstance<Tile>();
+                markerTile.sprite = baseTile.sprite;
+                markerTile.color = new Color(1f, 0.5f, 0.5f, 1f); // Light red for city markers
+
+                tilemap.SetTile(new Vector3Int(nx, ny, 0), markerTile);
+            }
         }
 
         // Draw towns with yellow color
@@ -151,14 +180,45 @@ public class MapDisplay : MonoBehaviour
 
             Tile townTile = ScriptableObject.CreateInstance<Tile>();
             townTile.sprite = baseTile.sprite;
-            townTile.color = Color.yellow; // Town color
+            townTile.color = new Color(1f, 1f, 0f, 1f); // Bright yellow with full alpha
 
             tilemap.SetTile(new Vector3Int(centeredX, centeredY, 0), townTile);
         }
 
-        // Draw roads if provided
-        if (roads != null)
+        // Draw primary roads
+        if (primaryRoads != null)
         {
+            foreach (Vector2Int road in primaryRoads)
+            {
+                int centeredX = road.x - tilemap.size.x / 2;
+                int centeredY = road.y - tilemap.size.y / 2;
+
+                Tile roadTile = ScriptableObject.CreateInstance<Tile>();
+                roadTile.sprite = baseTile.sprite;
+                roadTile.color = new Color(0.1f, 0.1f, 0.1f, 1f); // Darker for primary roads
+
+                tilemap.SetTile(new Vector3Int(centeredX, centeredY, 0), roadTile);
+            }
+        }
+
+        // Draw secondary roads (if specified, otherwise draw all roads as before)
+        if (secondaryRoads != null)
+        {
+            foreach (Vector2Int road in secondaryRoads)
+            {
+                int centeredX = road.x - tilemap.size.x / 2;
+                int centeredY = road.y - tilemap.size.y / 2;
+
+                Tile roadTile = ScriptableObject.CreateInstance<Tile>();
+                roadTile.sprite = baseTile.sprite;
+                roadTile.color = new Color(0.4f, 0.4f, 0.4f, 1f); // Lighter for secondary roads
+
+                tilemap.SetTile(new Vector3Int(centeredX, centeredY, 0), roadTile);
+            }
+        }
+        else if (roads != null && primaryRoads == null)
+        {
+            // Backward compatibility - draw all roads the same if no primary/secondary distinction
             foreach (Vector2Int road in roads)
             {
                 int centeredX = road.x - tilemap.size.x / 2;
@@ -166,18 +226,52 @@ public class MapDisplay : MonoBehaviour
 
                 Tile roadTile = ScriptableObject.CreateInstance<Tile>();
                 roadTile.sprite = baseTile.sprite;
-                roadTile.color = new Color(0.7f, 0.7f, 0.7f); // Gray for roads
+                roadTile.color = new Color(0.3f, 0.3f, 0.3f, 1f); // Standard gray for roads
 
                 tilemap.SetTile(new Vector3Int(centeredX, centeredY, 0), roadTile);
             }
         }
 
         Debug.Log("Drew cities, towns, and roads on tilemap");
-
     }
 
-    //store the biome colour, whether the tile is traversable and the range for that terrain
-    public struct TerrainType
+    public void DrawDecorations(List<Vector2Int> forestDecorations, List<Vector2Int> waterDecorations)
+    {
+        // Draw forest decorations (trees)
+        foreach (Vector2Int pos in forestDecorations)
+        {
+            int centeredX = pos.x - tilemap.size.x / 2;
+            int centeredY = pos.y - tilemap.size.y / 2;
+
+            Tile treeTile = ScriptableObject.CreateInstance<Tile>();
+            treeTile.sprite = baseTile.sprite;
+
+            // Slightly darker green for trees
+            treeTile.color = new Color(0.05f, 0.3f, 0.05f, 1f);
+
+            tilemap.SetTile(new Vector3Int(centeredX, centeredY, 0), treeTile);
+        }
+
+        // Draw water decorations (ripples)
+        foreach (Vector2Int pos in waterDecorations)
+        {
+            int centeredX = pos.x - tilemap.size.x / 2;
+            int centeredY = pos.y - tilemap.size.y / 2;
+
+            Tile rippleTile = ScriptableObject.CreateInstance<Tile>();
+            rippleTile.sprite = baseTile.sprite;
+
+            // Slightly lighter blue for ripples
+            rippleTile.color = new Color(0.4f, 0.7f, 1.0f, 1f);
+
+            tilemap.SetTile(new Vector3Int(centeredX, centeredY, 0), rippleTile);
+        }
+
+        Debug.Log("Drew terrain decorations");
+    }
+
+//store the biome colour, whether the tile is traversable and the range for that terrain
+public struct TerrainType
     {
         public Color colour;
         public float threshold;
