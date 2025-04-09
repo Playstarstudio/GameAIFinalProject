@@ -55,14 +55,14 @@ public class MapDisplay : MonoBehaviour
         terrainTypes = new TerrainType[]
         {
             //in order
+            new TerrainType(Color.red, true, 0.1f, 1),                                 // City
+            new TerrainType(Color.yellow, true, 0.1f, 2),                              // Town
+            new TerrainType(Color.gray,true, 0.1f ,3),                                  // Road
             new TerrainType(new Color(0.3f, 0.6f, 0.9f), false, waterThreshold, 0),    // Water
             new TerrainType(new Color(0.3f, 0.7f, 0.3f), true, grassThreshold, 0),     // Grasslands
             new TerrainType(new Color(0.1f, 0.4f, 0.1f), true, forestThreshold, 0),    // Forest
             new TerrainType(new Color(0.5f, 0.4f, 0.3f), false, mountainThreshold, 0), // Mountain
-            new TerrainType(Color.white, false, snowThreshold, 0),                     // Snow
-            new TerrainType(Color.red, true, 0.1f, 1),                                 // City
-            new TerrainType(Color.yellow, true, 0.1f, 2),                              // Town
-            new TerrainType(Color.gray,true, 0.1f ,3)                                  // Road
+            new TerrainType(Color.white, false, snowThreshold, 0)                     // Snow
         };
 
         //redraw
@@ -101,7 +101,7 @@ public class MapDisplay : MonoBehaviour
         {
             for (int x = 0; x < width; x++)
             {
-                float value = ((noiseMap[x, y] + (noiseMap2[x, y] * .3f) + (noiseMap3[x, y] * .125f) * .8f));
+                float value = ((noiseMap[x, y] + (noiseMap2[x, y] * .3f) + (noiseMap3[x, y] * .125f) * .6f));
                 //potentially clamp this
                 value = Mathf.Clamp01(value);
                 noiseMapData[x, y] = new MapData(value, GetTerrainType(value), 0);
