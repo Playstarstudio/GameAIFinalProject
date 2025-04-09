@@ -245,4 +245,21 @@ public class MapDisplay : MonoBehaviour
         return noiseMapData[x, y].FloatValue;
     }
 
+    public TerrainType GetTerrainType(int x, int y)
+    {
+        if (noiseMapData == null)
+        {
+            Debug.LogError("Noise map hasn't been initialized yet!");
+            return default;
+        }
+
+        if (x < 0 || x >= noiseMapData.GetLength(0) ||
+            y < 0 || y >= noiseMapData.GetLength(1))
+        {
+            Debug.LogError($"Requested coordinates ({x},{y}) are out of bounds!");
+            return default;
+        }
+
+        return noiseMapData[x, y].Terrain;
+    }
 }

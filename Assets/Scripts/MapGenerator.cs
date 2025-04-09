@@ -1,5 +1,6 @@
 using UnityEngine;
 using System.Collections.Generic;
+using System;
 
 public class MapGenerator : MonoBehaviour
 {
@@ -36,14 +37,37 @@ public class MapGenerator : MonoBehaviour
     // To store our road network
     private HashSet<Vector2Int> roadTiles = new HashSet<Vector2Int>();
 
+    //comment the following code if console output needs to be showcased
+    [Header("Debug Settings")]
+    public bool verboseLogging = false;
+
     void Start()
     {
         GenerateMap();
     }
 
+    private int regenerationAttempts = 0;
+    private const int maxRegenerationAttempts = 5;
+
     public void GenerateMap()
     {
-        // Generate noise maps as before
+        // Only log at the beginning if it's verbose or the first attempt; can be commneted out to show all the outputs
+        if (verboseLogging || regenerationAttempts == 0)
+        {
+            Debug.Log($"Starting map generation (Attempt {regenerationAttempts + 1}/{maxRegenerationAttempts})");
+        }
+
+        // Reset regeneration counter if this is a manual call
+        if (regenerationAttempts >= maxRegenerationAttempts)
+        {
+            Debug.LogError("Too many regeneration attempts, stopping to prevent stack overflow");
+            regenerationAttempts = 0;
+            return;
+        }
+
+        regenerationAttempts++;
+
+        // Generate noise maps as initially planned
         float[,] noiseMap1 = GenerateNoiseMap(mapWidth, mapHeight, seed, scale1, octaves1, persistence, lacunarity, offset);
         float[,] noiseMap2 = GenerateNoiseMap(mapWidth, mapHeight, seed, scale2, octaves2, persistence, lacunarity, offset);
         float[,] noiseMap3 = GenerateNoiseMap(mapWidth, mapHeight, seed, scale3, octaves3, persistence, lacunarity, offset);
@@ -51,17 +75,44 @@ public class MapGenerator : MonoBehaviour
         // Draw terrain first
         mapDisplay.DrawNoiseMap(noiseMap1, noiseMap2, noiseMap3);
 
-        // Place cities and towns
-        PlaceSettlements();
+        // Place cities
+        PlaceCities();
+
+        // Verify connectivity
+        if (!VerifyConnectivity())
+        {
+            // Only log if verbose or final attempt
+            if (verboseLogging || regenerationAttempts >= maxRegenerationAttempts)
+            {
+                Debug.LogWarning($"Map doesn't meet connectivity requirements, regenerating... (Attempt {regenerationAttempts})");
+            }
+            seed++; // Change seed to get different results
+            GenerateMap();
+            return;
+        }
 
         // Generate road network
-        GenerateRoads();
+        try
+        {
+            GenerateRoads();
+        }
+        catch (Exception e)
+        {
+            Debug.LogError($"Error generating roads: {e.Message}");
+            Debug.LogWarning("Continuing with generation despite road errors");
+        }
 
         // Draw cities, towns, and roads on the tilemap
         mapDisplay.DrawSettlements(cities, towns, roadTiles);
 
         // Debug visualization
         VisualizeSettlements();
+
+        // Only log success on the final successful attempt
+        Debug.Log($"Successfully generated map on attempt {regenerationAttempts}/{maxRegenerationAttempts}");
+
+        // Reset counter after successful generation
+        regenerationAttempts = 0;
     }
 
 
@@ -136,6 +187,7 @@ public class MapGenerator : MonoBehaviour
 
     private void PlaceCities()
     {
+        cities.Clear();
         int attempts = 0;
         int maxAttempts = 1000;
 
@@ -144,12 +196,12 @@ public class MapGenerator : MonoBehaviour
             attempts++;
 
             // Random position
-            int x = Random.Range(0, mapWidth);
-            int y = Random.Range(0, mapHeight);
+            int x = UnityEngine.Random.Range(0, mapWidth);
+            int y = UnityEngine.Random.Range(0, mapHeight);
             Vector2Int pos = new Vector2Int(x, y);
 
-            // Check if position is on suitable terrain
-            if (IsSuitableForCity(x, y))
+            // Check if 5x5 area around this position is suitable
+            if (IsSuitableAreaForCity(x, y, 5))
             {
                 // Check minimum distance from other cities
                 bool tooClose = false;
@@ -165,18 +217,81 @@ public class MapGenerator : MonoBehaviour
                 if (!tooClose)
                 {
                     cities.Add(pos);
+                    // Mark the city's area in the map data
+                    // MarkCityArea(pos); // Implement this if needed
                 }
             }
         }
 
-        Debug.Log($"Placed {cities.Count} cities after {attempts} attempts");
+        // Replace below for the output comments
+        //Debug.Log($"Placed {cities.Count} cities after {attempts} attempts");
+
+        if (verboseLogging || regenerationAttempts >= maxRegenerationAttempts)
+        {
+            Debug.Log($"Placed {cities.Count} cities after {attempts} attempts");
+        }
+
+
+        // Warning if we couldn't place all cities, then don't regenerate
+        if (cities.Count < numberOfCities)
+        {
+            Debug.LogWarning("Could not place enough cities. Continuing with fewer cities.");
+        }
     }
 
-    private bool IsSuitableForCity(int x, int y)
+
+    private bool IsSuitableAreaForCity(int centerX, int centerY, int areaSize)
     {
-        // For now, I am setting the return down as true. However, we'll improve this later in accordance with the terrain type
-        // This will place cities anywhere, but we will need to refine it to only place on traversable terrain
-        return true;
+        int radius = areaSize / 2;
+
+        // Check boundaries
+        if (centerX - radius < 0 || centerX + radius >= mapWidth ||
+            centerY - radius < 0 || centerY + radius >= mapHeight)
+        {
+            return false;
+        }
+
+        // Instead of requiring all cells to be perfect, just check if most are traversable
+        int traversableCount = 0;
+        int totalCells = 0;
+
+        for (int y = centerY - radius; y <= centerY + radius; y++)
+        {
+            for (int x = centerX - radius; x <= centerX + radius; x++)
+            {
+                totalCells++;
+                float value = mapDisplay.GetNoiseValue(x, y);
+                MapDisplay.TerrainType terrain = mapDisplay.GetTerrainType(x, y);
+
+                if (terrain.isTraversable)
+                {
+                    traversableCount++;
+                }
+            }
+        }
+
+        // If at least 70% of cells are traversable, consider this area suitable
+        return (float)traversableCount / totalCells >= 0.7f;
+    }
+
+    private void MarkCityArea(Vector2Int cityPos)
+    {
+        // Mark a 3x3 diamond as city
+        int[] dx = { 0, 1, 0, -1, 0 };
+        int[] dy = { 0, 0, 1, 0, -1 };
+
+        for (int i = 0; i < dx.Length; i++)
+        {
+            int x = cityPos.x + dx[i];
+            int y = cityPos.y + dy[i];
+
+            // Skip if out of bounds
+            if (x < 0 || x >= mapWidth || y < 0 || y >= mapHeight)
+                continue;
+
+            // Mark as city
+            // We'll need to implement this in MapDisplay
+        }
     }
 
     private void VisualizeSettlements()
@@ -227,8 +342,8 @@ public class MapGenerator : MonoBehaviour
             attempts++;
 
             // Random position
-            int x = Random.Range(0, mapWidth);
-            int y = Random.Range(0, mapHeight);
+            int x = UnityEngine.Random.Range(0, mapWidth);
+            int y = UnityEngine.Random.Range(0, mapHeight);
             Vector2Int pos = new Vector2Int(x, y);
 
             // Check if position is on suitable terrain
@@ -281,14 +396,38 @@ public class MapGenerator : MonoBehaviour
     {
         roadTiles.Clear();
 
-        // First connect all cities
-        ConnectAllCities();
+        // If no cities, nothing to connect
+        if (cities.Count == 0)
+        {
+            Debug.LogWarning("No cities to connect with roads");
+            return;
+        }
 
-        // Then connect towns to nearest city
-        ConnectTownsToNearestCity();
+        // Create roads between cities using Dijkstra's algorithm
+        for (int i = 0; i < cities.Count; i++)
+        {
+            // Skip if only one city
+            if (cities.Count <= 1)
+            {
+                break;
+            }
+
+            Vector2Int sourceCity = cities[i];
+            Vector2Int targetCity = FindClosestReachableCity(sourceCity, i);
+
+            if (targetCity != Vector2Int.zero)
+            {
+                BuildRoadWithDijkstra(sourceCity, targetCity);
+            }
+            else
+            {
+                Debug.LogWarning($"Could not find reachable city from city {i}. Not all cities are connected.");
+            }
+        }
 
         Debug.Log($"Generated {roadTiles.Count} road tiles");
     }
+
 
     private void ConnectAllCities()
     {
@@ -372,5 +511,307 @@ public class MapGenerator : MonoBehaviour
             Vector2Int roadTile = new Vector2Int(x, y);
             roadTiles.Add(roadTile);
         }
+    }
+
+    private bool VerifyConnectivity()
+    {
+        // Create distance map from a random traversable cell
+        Vector2Int startPos = FindRandomTraversableCell();
+        Dictionary<Vector2Int, float> distanceMap = CreateDistanceMap(startPos);
+
+        // Count all traversable cells
+        int totalTraversableCells = CountTraversableCells();
+
+        // Count reachable cells from distance map
+        int reachableCells = distanceMap.Count;
+
+        // Calculate connectivity percentage
+        float connectivityPercentage = (float)reachableCells / totalTraversableCells;
+
+        // Replace with below in case of detailed console outputs
+        //Debug.Log($"Connectivity: {connectivityPercentage * 100}% ({reachableCells}/{totalTraversableCells})");
+
+        if (verboseLogging || regenerationAttempts >= maxRegenerationAttempts)
+        {
+            Debug.Log($"Connectivity: {connectivityPercentage * 100}% ({reachableCells}/{totalTraversableCells})");
+        }
+
+        // Verify city connectivity
+        if (!VerifyCityConnectivity(distanceMap))
+        {
+            // Replace with below in case of detailed console outputs
+            //Debug.LogWarning("Cities are not all reachable from each other");
+
+            if (verboseLogging || regenerationAttempts >= maxRegenerationAttempts)
+            {
+                Debug.LogWarning("Cities are not all reachable from each other");
+            }
+            return false;
+        }
+
+        return connectivityPercentage >= 0.8f; // 80% requirement
+    }
+
+    private int CountTraversableCells()
+    {
+        int count = 0;
+        for (int y = 0; y < mapHeight; y++)
+        {
+            for (int x = 0; x < mapWidth; x++)
+            {
+                float value = mapDisplay.GetNoiseValue(x, y);
+                MapDisplay.TerrainType terrain = mapDisplay.GetTerrainType(x, y);
+                if (terrain.isTraversable)
+                {
+                    count++;
+                }
+            }
+        }
+        return count;
+    }
+
+    private Vector2Int FindRandomTraversableCell()
+    {
+        int maxAttempts = 1000;
+        int attempts = 0;
+
+        while (attempts < maxAttempts)
+        {
+            attempts++;
+            int x = UnityEngine.Random.Range(0, mapWidth);
+            int y = UnityEngine.Random.Range(0, mapHeight);
+
+            float value = mapDisplay.GetNoiseValue(x, y);
+            MapDisplay.TerrainType terrain = mapDisplay.GetTerrainType(x, y);
+
+            if (terrain.isTraversable)
+            {
+                return new Vector2Int(x, y);
+            }
+        }
+
+        // Default fallback
+        Debug.LogError("Could not find traversable cell, using first city position");
+        return cities[0];
+    }
+
+    private Dictionary<Vector2Int, float> CreateDistanceMap(Vector2Int startPos)
+    {
+        // Dijkstra's algorithm
+        Dictionary<Vector2Int, float> distanceMap = new Dictionary<Vector2Int, float>();
+        PriorityQueue<Vector2Int, float> frontier = new PriorityQueue<Vector2Int, float>();
+
+        distanceMap[startPos] = 0;
+        frontier.Enqueue(startPos, 0);
+
+        while (frontier.Count > 0)
+        {
+            Vector2Int current = frontier.Dequeue();
+            float currentDistance = distanceMap[current];
+
+            // Check all four neighbors
+            int[] dx = { 1, 0, -1, 0 };
+            int[] dy = { 0, 1, 0, -1 };
+
+            for (int i = 0; i < 4; i++)
+            {
+                Vector2Int neighbor = new Vector2Int(current.x + dx[i], current.y + dy[i]);
+
+                // Skip if out of bounds
+                if (neighbor.x < 0 || neighbor.x >= mapWidth ||
+                    neighbor.y < 0 || neighbor.y >= mapHeight)
+                {
+                    continue;
+                }
+
+                // Skip if not traversable
+                float value = mapDisplay.GetNoiseValue(neighbor.x, neighbor.y);
+                MapDisplay.TerrainType terrain = mapDisplay.GetTerrainType(neighbor.x, neighbor.y);
+                if (!terrain.isTraversable)
+                {
+                    continue;
+                }
+
+                // Calculate new distance (including terrain cost)
+                float terrainCost = 1.0f + value * roadCostMultiplier; // Higher values are more costly
+                float newDistance = currentDistance + terrainCost;
+
+                // If found shorter path, update
+                if (!distanceMap.ContainsKey(neighbor) || newDistance < distanceMap[neighbor])
+                {
+                    distanceMap[neighbor] = newDistance;
+                    frontier.Enqueue(neighbor, newDistance);
+                }
+            }
+        }
+
+        return distanceMap;
+    }
+
+    private bool VerifyCityConnectivity(Dictionary<Vector2Int, float> distanceMap)
+    {
+        // Check if cities list is empty
+        if (cities.Count == 0)
+        {
+            Debug.LogWarning("No cities to verify connectivity for");
+            return true; // Return true to avoid regeneration
+        }
+
+        // Check if all cities are reachable
+        foreach (Vector2Int city in cities)
+        {
+            if (!distanceMap.ContainsKey(city))
+            {
+                return false;
+            }
+        }
+
+        // If only one city, nothing to connect
+        if (cities.Count <= 1)
+        {
+            return true;
+        }
+
+        // Check if all cities have the same reachable cells count
+        Dictionary<Vector2Int, float> firstCityMap = CreateDistanceMap(cities[0]);
+        int firstCityReachableCount = firstCityMap.Count;
+
+        for (int i = 1; i < cities.Count; i++)
+        {
+            Dictionary<Vector2Int, float> cityMap = CreateDistanceMap(cities[i]);
+            if (cityMap.Count != firstCityReachableCount)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private Vector2Int FindClosestReachableCity(Vector2Int sourceCity, int skipIndex)
+    {
+        // If no other cities, return zero vector
+        if (cities.Count <= 1)
+        {
+            return Vector2Int.zero;
+        }
+
+        // Create distance map from source city
+        Dictionary<Vector2Int, float> distanceMap = CreateDistanceMap(sourceCity);
+
+        Vector2Int closestCity = Vector2Int.zero;
+        float minDistance = float.MaxValue;
+
+        for (int i = 0; i < cities.Count; i++)
+        {
+            if (i == skipIndex) continue; // Skip self
+
+            Vector2Int targetCity = cities[i];
+
+            // Check if city is reachable
+            if (distanceMap.ContainsKey(targetCity))
+            {
+                float distance = distanceMap[targetCity];
+                if (distance < minDistance)
+                {
+                    minDistance = distance;
+                    closestCity = targetCity;
+                }
+            }
+        }
+
+        return closestCity;
+    }
+
+    private void BuildRoadWithDijkstra(Vector2Int start, Vector2Int end)
+    {
+        // Create distance map from start
+        Dictionary<Vector2Int, float> distanceMap = CreateDistanceMap(start);
+
+        // Check if end is reachable
+        if (!distanceMap.ContainsKey(end))
+        {
+            Debug.LogWarning("Cannot reach target city, skipping road");
+            return;
+        }
+
+        // Trace path from end to start
+        Vector2Int current = end;
+
+        while (current != start)
+        {
+            roadTiles.Add(current);
+
+            // Find neighbor with lowest distance
+            Vector2Int nextStep = Vector2Int.zero;
+            float lowestDistance = float.MaxValue;
+
+            int[] dx = { 1, 0, -1, 0 };
+            int[] dy = { 0, 1, 0, -1 };
+
+            for (int i = 0; i < 4; i++)
+            {
+                Vector2Int neighbor = new Vector2Int(current.x + dx[i], current.y + dy[i]);
+
+                // Skip if out of bounds
+                if (neighbor.x < 0 || neighbor.x >= mapWidth ||
+                    neighbor.y < 0 || neighbor.y >= mapHeight)
+                {
+                    continue;
+                }
+
+                // Skip if not traversable
+                float value = mapDisplay.GetNoiseValue(neighbor.x, neighbor.y);
+                MapDisplay.TerrainType terrain = mapDisplay.GetTerrainType(neighbor.x, neighbor.y);
+                if (!terrain.isTraversable)
+                {
+                    continue;
+                }
+
+                // Check if this neighbor is in our distance map
+                if (distanceMap.ContainsKey(neighbor) && distanceMap[neighbor] < lowestDistance)
+                {
+                    lowestDistance = distanceMap[neighbor];
+                    nextStep = neighbor;
+                }
+            }
+
+            if (nextStep == Vector2Int.zero)
+            {
+                Debug.LogError("Could not find next step in path, breaking");
+                break;
+            }
+
+            current = nextStep;
+        }
+
+        // Add start point
+        roadTiles.Add(start);
+    }
+}
+
+public class PriorityQueue<T, TPriority> where TPriority : IComparable<TPriority>
+{
+    private List<(T item, TPriority priority)> elements = new List<(T, TPriority)>();
+
+    public int Count => elements.Count;
+
+    public void Enqueue(T item, TPriority priority)
+    {
+        elements.Add((item, priority));
+        // Keep list sorted by priority
+        elements.Sort((a, b) => a.priority.CompareTo(b.priority));
+    }
+
+    public T Dequeue()
+    {
+        if (elements.Count == 0)
+        {
+            throw new InvalidOperationException("Queue is empty");
+        }
+
+        T item = elements[0].item;
+        elements.RemoveAt(0);
+        return item;
     }
 }
