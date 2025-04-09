@@ -1,15 +1,12 @@
-using System.Collections;
 using System.Collections.Generic;
-using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.Tilemaps;
-using UnityEngine.UIElements;
 
 public class MapDisplay : MonoBehaviour
 {
-    public enum DisplayMode {NoiseMap, TerrainMap}
+    public enum DisplayMode { NoiseMap, TerrainMap }
     public DisplayMode displayMode;
-    public Tilemap tilemap; 
+    public Tilemap tilemap;
     public Tile baseTile;
     private TerrainType[] terrainTypes;
     [Range(0f, 1f)]
@@ -23,6 +20,7 @@ public class MapDisplay : MonoBehaviour
     [Range(0f, 1f)]
     public float snowPercent = 0.1f;
     public MapGenerator mapGenerator;
+    public float[,] savedNoiseMap;
 
     private void Start()
     {
@@ -36,7 +34,7 @@ public class MapDisplay : MonoBehaviour
         if (Mathf.Abs(total - 1.0f) > 0.01f)
         {
             Debug.LogWarning("Totals for terrain don't equal 1, adjusting now");
-            float normalizer = 1/ (waterPercent + grasslandPercent + forrestPercent + mountainPercent + snowPercent);
+            float normalizer = 1 / (waterPercent + grasslandPercent + forrestPercent + mountainPercent + snowPercent);
             waterPercent = waterPercent * normalizer;
             grasslandPercent = grasslandPercent * normalizer;
             forrestPercent = forrestPercent * normalizer;
@@ -92,31 +90,32 @@ public class MapDisplay : MonoBehaviour
         // Clear old tiles before drawing
         tilemap.ClearAllTiles();
         // Ensure the Tilemap bounds match the noise map
-        tilemap.ResizeBounds(); 
+        tilemap.ResizeBounds();
         for (int y = 0; y < height; y++)
         {
             for (int x = 0; x < width; x++)
             {
-                float value = (noiseMap[x, y] + (noiseMap2[x,y] * .3f) + (noiseMap3[x,y] * .125f))*.8f;
+                savedNoiseMap[x, y] = (noiseMap[x, y] + (noiseMap2[x, y] * .3f) + (noiseMap3[x, y] * .125f)) * .8f;
                 //potentially clamp this
-                value = Mathf.Clamp01(value);
-                
+                savedNoiseMap[x, y] = Mathf.Clamp01(savedNoiseMap[x, y]);
+
                 //use the enum to switch between either the map with the biomes or the noise map
                 Color tileColour = Color.black;
                 if (displayMode == DisplayMode.NoiseMap)
                 {
                     //linearly interpolate between black and white based on value
-                    tileColour = Color.Lerp(Color.black, Color.white, value);
-                } else if (displayMode == DisplayMode.TerrainMap)
+                    tileColour = Color.Lerp(Color.black, Color.white, savedNoiseMap[x, y]);
+                }
+                else if (displayMode == DisplayMode.TerrainMap)
                 {
                     //otherwise get the matching colour from the terrain type array
-                    TerrainType selectedTerrain = GetTerrainType(value);
+                    TerrainType selectedTerrain = GetTerrainType(savedNoiseMap[x, y]);
                     tileColour = selectedTerrain.colour;
                 }
-                
+
                 Tile newTile = ScriptableObject.CreateInstance<Tile>();
-                newTile.sprite = baseTile.sprite; 
-                newTile.color = tileColour; 
+                newTile.sprite = baseTile.sprite;
+                newTile.color = tileColour;
 
                 int centeredX = x - width / 2;
                 int centeredY = y - height / 2;
@@ -170,7 +169,7 @@ public class MapDisplay : MonoBehaviour
         }
 
         Debug.Log("Drew cities, towns, and roads on tilemap");
-  
+
     }
 
     //store the biome colour, whether the tile is traversable and the range for that terrain
@@ -203,5 +202,23 @@ public class MapDisplay : MonoBehaviour
             }
         }
         return selectedTerrain;
+    }
+
+    public float GetNoiseValue(int x, int y)
+    {
+        if (savedNoiseMap == null)
+        {
+            Debug.LogError("Noise map hasn't been saved yet!");
+            return 0f;
+        }
+
+        if (x < 0 || x >= savedNoiseMap.GetLength(0) ||
+            y < 0 || y >= savedNoiseMap.GetLength(1))
+        {
+            Debug.LogError($"Requested coordinates ({x},{y}) are out of bounds!");
+            return 0f;
+        }
+
+        return savedNoiseMap[x, y];
     }
 }
