@@ -56,9 +56,9 @@ public class MapDisplay : MonoBehaviour
             new TerrainType(new Color(0.1f, 0.4f, 0.1f), true, forestThreshold),    // Forest
             new TerrainType(new Color(0.5f, 0.4f, 0.3f), false, mountainThreshold), // Mountain
             new TerrainType(Color.white, false, snowThreshold),                     // Snow
-            new TerrainType(Color.red, true, 1.1f),                                 // City
-            new TerrainType(Color.yellow, true, 1.2f),                              // Town
-            new TerrainType(Color.gray,true,1.01f)                                  // Road
+            //new TerrainType(Color.red, true, -2f),                                // City
+            //new TerrainType(Color.yellow, true, -3f),                             // Town
+            //new TerrainType(Color.gray,true,-4f)                                  // Road
         };
 
         //redraw
@@ -88,7 +88,7 @@ public class MapDisplay : MonoBehaviour
 
         int width = noiseMap.GetLength(0);
         int height = noiseMap.GetLength(1);
-
+        savedNoiseMap = new float[width, height];
         // Clear old tiles before drawing
         tilemap.ClearAllTiles();
         // Ensure the Tilemap bounds match the noise map
@@ -97,7 +97,7 @@ public class MapDisplay : MonoBehaviour
         {
             for (int x = 0; x < width; x++)
             {
-                savedNoiseMap[x, y] = (noiseMap[x, y] + (noiseMap2[x, y] * .3f) + (noiseMap3[x, y] * .125f)) * .8f;
+                savedNoiseMap[x, y] = (noiseMap[x, y] + (noiseMap2[x, y] * .3f) + (noiseMap3[x, y] * .125f) * .8f);
                 //potentially clamp this
                 savedNoiseMap[x, y] = Mathf.Clamp01(savedNoiseMap[x, y]);
 
