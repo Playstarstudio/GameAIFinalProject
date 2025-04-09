@@ -51,12 +51,14 @@ public class MapDisplay : MonoBehaviour
         terrainTypes = new TerrainType[]
         {
             //in order
-            //water, grassland, forrest, mountain, snow
-            new TerrainType(new Color(0.3f, 0.6f, 0.9f), false, waterThreshold),
-            new TerrainType(new Color(0.3f, 0.7f, 0.3f), true, grassThreshold),
-            new TerrainType(new Color(0.1f, 0.4f, 0.1f), true, forestThreshold),
-            new TerrainType(new Color(0.5f, 0.4f, 0.3f), false, mountainThreshold),
-            new TerrainType(Color.white, false, snowThreshold)
+            new TerrainType(new Color(0.3f, 0.6f, 0.9f), false, waterThreshold),    // Water
+            new TerrainType(new Color(0.3f, 0.7f, 0.3f), true, grassThreshold),     // Grasslands
+            new TerrainType(new Color(0.1f, 0.4f, 0.1f), true, forestThreshold),    // Forest
+            new TerrainType(new Color(0.5f, 0.4f, 0.3f), false, mountainThreshold), // Mountain
+            new TerrainType(Color.white, false, snowThreshold),                     // Snow
+            new TerrainType(Color.red, true, 1.1f),                                 // City
+            new TerrainType(Color.yellow, true, 1.2f),                              // Town
+            new TerrainType(Color.gray,true,1.01f)                                  // Road
         };
 
         //redraw
@@ -116,7 +118,6 @@ public class MapDisplay : MonoBehaviour
                 Tile newTile = ScriptableObject.CreateInstance<Tile>();
                 newTile.sprite = baseTile.sprite;
                 newTile.color = tileColour;
-
                 int centeredX = x - width / 2;
                 int centeredY = y - height / 2;
                 tilemap.SetTile(new Vector3Int(centeredX, centeredY, 0), newTile);
