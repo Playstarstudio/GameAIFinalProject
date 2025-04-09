@@ -11,7 +11,7 @@ public class MapDisplay : MonoBehaviour
     public DisplayMode displayMode;
     public Tilemap tilemap; 
     public Tile baseTile;
-    public TerrainType[] terrainTypes;
+    private TerrainType[] terrainTypes;
     [Range(0f, 1f)]
     public float waterPercent = 0.2f;
     [Range(0f, 1f)]
@@ -23,7 +23,6 @@ public class MapDisplay : MonoBehaviour
     [Range(0f, 1f)]
     public float snowPercent = 0.1f;
     public MapGenerator mapGenerator;
-    private float[,] savedNoiseMap;
 
     private void Start()
     {
@@ -89,7 +88,7 @@ public class MapDisplay : MonoBehaviour
 
         int width = noiseMap.GetLength(0);
         int height = noiseMap.GetLength(1);
-        savedNoiseMap = new float[width, height];
+
         // Clear old tiles before drawing
         tilemap.ClearAllTiles();
         // Ensure the Tilemap bounds match the noise map
@@ -98,22 +97,20 @@ public class MapDisplay : MonoBehaviour
         {
             for (int x = 0; x < width; x++)
             {
-                savedNoiseMap[x, y] = (noiseMap[x, y] + (noiseMap2[x, y] * .3f) + (noiseMap3[x, y] * .125f)) * .8f;
                 float value = (noiseMap[x, y] + (noiseMap2[x,y] * .3f) + (noiseMap3[x,y] * .125f))*.8f;
-
                 //potentially clamp this
-                savedNoiseMap[x, y] = Mathf.Clamp01(value);
+                value = Mathf.Clamp01(value);
                 
                 //use the enum to switch between either the map with the biomes or the noise map
                 Color tileColour = Color.black;
                 if (displayMode == DisplayMode.NoiseMap)
                 {
                     //linearly interpolate between black and white based on value
-                    tileColour = Color.Lerp(Color.black, Color.white, savedNoiseMap[x, y]);
+                    tileColour = Color.Lerp(Color.black, Color.white, value);
                 } else if (displayMode == DisplayMode.TerrainMap)
                 {
                     //otherwise get the matching colour from the terrain type array
-                    TerrainType selectedTerrain = GetTerrainType(savedNoiseMap[x, y]);
+                    TerrainType selectedTerrain = GetTerrainType(value);
                     tileColour = selectedTerrain.colour;
                 }
                 
@@ -126,6 +123,54 @@ public class MapDisplay : MonoBehaviour
                 tilemap.SetTile(new Vector3Int(centeredX, centeredY, 0), newTile);
             }
         }
+    }
+
+    public void DrawSettlements(List<Vector2Int> cities, List<Vector2Int> towns, HashSet<Vector2Int> roads = null)
+    {
+        // Draw cities with red color
+        foreach (Vector2Int city in cities)
+        {
+            int centeredX = city.x - tilemap.size.x / 2;
+            int centeredY = city.y - tilemap.size.y / 2;
+
+            Tile cityTile = ScriptableObject.CreateInstance<Tile>();
+            cityTile.sprite = baseTile.sprite;
+            cityTile.color = Color.red; // City color
+
+            tilemap.SetTile(new Vector3Int(centeredX, centeredY, 0), cityTile);
+        }
+
+        // Draw towns with yellow color
+        foreach (Vector2Int town in towns)
+        {
+            int centeredX = town.x - tilemap.size.x / 2;
+            int centeredY = town.y - tilemap.size.y / 2;
+
+            Tile townTile = ScriptableObject.CreateInstance<Tile>();
+            townTile.sprite = baseTile.sprite;
+            townTile.color = Color.yellow; // Town color
+
+            tilemap.SetTile(new Vector3Int(centeredX, centeredY, 0), townTile);
+        }
+
+        // Draw roads if provided
+        if (roads != null)
+        {
+            foreach (Vector2Int road in roads)
+            {
+                int centeredX = road.x - tilemap.size.x / 2;
+                int centeredY = road.y - tilemap.size.y / 2;
+
+                Tile roadTile = ScriptableObject.CreateInstance<Tile>();
+                roadTile.sprite = baseTile.sprite;
+                roadTile.color = new Color(0.7f, 0.7f, 0.7f); // Gray for roads
+
+                tilemap.SetTile(new Vector3Int(centeredX, centeredY, 0), roadTile);
+            }
+        }
+
+        Debug.Log("Drew cities, towns, and roads on tilemap");
+  
     }
 
     //store the biome colour, whether the tile is traversable and the range for that terrain
@@ -158,22 +203,5 @@ public class MapDisplay : MonoBehaviour
             }
         }
         return selectedTerrain;
-    }
-    public float GetNoiseValue(int x, int y)
-    {
-        if (savedNoiseMap == null)
-        {
-            Debug.LogError("Noise map hasn't been saved yet!");
-            return 0f;
-        }
-
-        if (x < 0 || x >= savedNoiseMap.GetLength(0) ||
-            y < 0 || y >= savedNoiseMap.GetLength(1))
-        {
-            Debug.LogError($"Requested coordinates ({x},{y}) are out of bounds!");
-            return 0f;
-        }
-
-        return savedNoiseMap[x, y];
     }
 }
