@@ -195,7 +195,7 @@ public class MapDisplay : MonoBehaviour
 
                 Tile roadTile = ScriptableObject.CreateInstance<Tile>();
                 roadTile.sprite = baseTile.sprite;
-                roadTile.color = new Color(0.1f, 0.1f, 0.1f, 1f); // Darker for primary roads
+                roadTile.color = new Color(0.0f, 0.0f, 0.0f, 1f); // Pure black for primary roads
 
                 tilemap.SetTile(new Vector3Int(centeredX, centeredY, 0), roadTile);
             }
@@ -211,7 +211,7 @@ public class MapDisplay : MonoBehaviour
 
                 Tile roadTile = ScriptableObject.CreateInstance<Tile>();
                 roadTile.sprite = baseTile.sprite;
-                roadTile.color = new Color(0.4f, 0.4f, 0.4f, 1f); // Lighter for secondary roads
+                roadTile.color = new Color(0.45f, 0.45f, 0.45f, 1f); // Medium Gray for secondary roads
 
                 tilemap.SetTile(new Vector3Int(centeredX, centeredY, 0), roadTile);
             }
