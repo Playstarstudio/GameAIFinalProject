@@ -1,6 +1,7 @@
 using UnityEngine;
 using System.Collections.Generic;
 using System;
+using System.Security.Cryptography;
 
 public class MapGenerator : MonoBehaviour
 {
@@ -63,8 +64,7 @@ public class MapGenerator : MonoBehaviour
     {
         
         Debug.LogError($"*** Generating map with seed: {seed}");
-        seed = 12345;
-
+        
         // Reset regeneration counter if this is a manual call
         if (regenerationAttempts >= maxRegenerationAttempts)
         {
@@ -993,7 +993,7 @@ public class MapGenerator : MonoBehaviour
         // Apply terrain-specific costs
         if (terrain.type == 5) // Forest (adjust index as needed)
         {
-            cost *= 1.8f; // Reduce from 2.5f to 1.8f to make forest crossings more viable
+                cost *= (mapDisplay.GetNoiseValue(to.x,to.y) + roadCostMultiplier) * 40f; // Reduce from 2.5f to 1.8f to make forest crossings more viable
         }
         else if (!terrain.isTraversable)
         {
@@ -1003,7 +1003,7 @@ public class MapGenerator : MonoBehaviour
         else
         {
             // For all other traversable terrain, apply the standard multiplier
-            cost *= roadCostMultiplier;
+            cost *= mapDisplay.GetNoiseValue(to.x, to.y) * 10f;
         }
 
         return cost;
